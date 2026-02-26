@@ -5,7 +5,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>📚 LibraLens</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500&display=swap');
 
@@ -35,7 +34,6 @@ align-items: center;
 justify-content: space-between;
 padding: 16px 20px 12px;
 flex-shrink: 0;
-z-index: 10;
 }
 
 .logo {
@@ -46,18 +44,17 @@ color: var(–gold);
 }
 .logo span { color: var(–paper); font-weight: 400; }
 
-.status-dot {
-width: 10px; height: 10px;
-border-radius: 50%;
-background: #555;
-transition: background 0.3s;
+.status-pill {
+background: rgba(245,237,224,0.1);
+border-radius: 20px;
+padding: 5px 12px;
+font-size: 12px;
+color: rgba(245,237,224,0.6);
+transition: all 0.3s;
 }
-.status-dot.active { background: var(–found); box-shadow: 0 0 8px var(–found); }
-.status-dot.scanning { background: var(–gold); box-shadow: 0 0 8px var(–gold); animation: pulse 1s infinite; }
-
-@keyframes pulse {
-0%,100% { opacity:1; } 50% { opacity:0.3; }
-}
+.status-pill.ready { background: rgba(45,186,111,0.2); color: var(–found); }
+.status-pill.scanning { background: rgba(240,180,41,0.2); color: var(–gold); }
+.status-pill.error { background: rgba(192,57,43,0.2); color: #e74c3c; }
 
 .search-area {
 padding: 0 20px 14px;
@@ -73,10 +70,7 @@ color: var(–amber);
 margin-bottom: 8px;
 }
 
-.search-row {
-display: flex;
-gap: 10px;
-}
+.search-row { display: flex; gap: 10px; }
 
 .search-input {
 flex: 1;
@@ -111,7 +105,6 @@ transition: background 0.2s, transform 0.1s;
 .scan-btn:active { transform: scale(0.96); }
 .scan-btn.scanning { background: #c0392b; color: white; }
 
-/* CAMERA */
 .camera-wrapper {
 flex: 1;
 position: relative;
@@ -132,7 +125,9 @@ width: 100%; height: 100%;
 pointer-events: none;
 }
 
-/* START SCREEN */
+/* Hidden canvas for processing */
+canvas#capture { display: none; }
+
 .start-screen {
 position: absolute;
 inset: 0;
@@ -174,7 +169,6 @@ box-shadow: 0 8px 24px rgba(240,180,41,0.35);
 -webkit-tap-highlight-color: transparent;
 }
 
-/* SCAN LINE */
 .scan-line {
 position: absolute;
 left: 0; right: 0; height: 2px;
@@ -187,11 +181,10 @@ display: none; z-index: 4;
 0% { top: 0%; } 100% { top: 100%; }
 }
 
-/* RESULT BANNER */
 .result-banner {
 position: absolute;
 bottom: 0; left: 0; right: 0;
-padding: 16px 20px 28px;
+padding: 16px 20px 32px;
 background: linear-gradient(0deg, rgba(26,18,8,0.97) 0%, transparent 100%);
 z-index: 10;
 display: none;
@@ -211,56 +204,63 @@ font-family: ‘Playfair Display’, serif;
 font-size: 20px; font-weight: 700;
 line-height: 1.3;
 }
-
 .result-sub {
 font-size: 13px;
 color: rgba(245,237,224,0.5);
 margin-top: 4px;
 }
 
-/* LOADING BAR */
-.loading-bar {
-position: absolute;
-top: 0; left: 0;
-height: 3px;
-background: var(–gold);
-width: 0%;
-transition: width 0.3s;
-z-index: 20;
+/* Not supported message */
+.not-supported {
+position: fixed;
+inset: 0;
+background: var(–ink);
 display: none;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+padding: 30px;
+gap: 16px;
+z-index: 100;
+text-align: center;
 }
-.loading-bar.active { display: block; }
-
-/* TIPS */
-.tip-bubble {
-position: absolute;
-top: 12px; left: 50%;
-transform: translateX(-50%);
-background: rgba(26,18,8,0.85);
-border: 1px solid rgba(240,180,41,0.3);
-border-radius: 20px;
-padding: 8px 16px;
-font-size: 12px;
-color: rgba(245,237,224,0.7);
-white-space: nowrap;
-z-index: 15;
-display: none;
-backdrop-filter: blur(8px);
+.not-supported.visible { display: flex; }
+.not-supported h2 {
+font-family: ‘Playfair Display’, serif;
+color: var(–gold);
+font-size: 22px;
 }
-.tip-bubble.visible { display: block; }
-
+.not-supported p {
+color: rgba(245,237,224,0.6);
+font-size: 14px;
+line-height: 1.7;
+max-width: 300px;
+}
+.not-supported code {
+background: rgba(245,237,224,0.1);
+padding: 2px 8px;
+border-radius: 6px;
+font-size: 13px;
+color: var(–gold);
+}
 </style>
+
 </head>
 <body>
 
-<div class="loading-bar" id="loadingBar"></div>
+<!-- Not supported screen -->
+
+<div class="not-supported" id="notSupported">
+  <div style="font-size:48px">⚠️</div>
+  <h2>Shape Detection non activé</h2>
+  <p>Pour utiliser LibraLens, active l'option dans :<br><br>
+  <strong>Réglages → Safari → Avancé<br>→ Experimental Features<br>→ <code>Shape Detection API</code></strong><br><br>
+  Puis recharge cette page.</p>
+</div>
 
 <header>
   <div class="logo">Libra<span>Lens</span></div>
-  <div style="display:flex;align-items:center;gap:8px">
-    <span style="font-size:11px;color:rgba(245,237,224,0.4)" id="statusLabel">Prêt</span>
-    <div class="status-dot" id="statusDot"></div>
-  </div>
+  <div class="status-pill" id="statusPill">Vérification...</div>
 </header>
 
 <div class="search-area">
@@ -277,16 +277,15 @@ backdrop-filter: blur(8px);
   <div class="start-screen" id="startScreen">
     <div class="book-icon">📚</div>
     <div class="start-title">Trouve ton livre<br>en un regard</div>
-    <div class="start-sub">Pointe ta caméra vers l'étagère, et LibraLens trouve ton livre automatiquement.</div>
+    <div class="start-sub">OCR natif Apple — rapide, gratuit, sans connexion requise.</div>
     <button class="start-btn" onclick="startCamera()">Activer la caméra</button>
   </div>
 
 <video id="video" autoplay playsinline muted></video>
 <canvas id="overlay"></canvas>
+<canvas id="capture"></canvas>
 
   <div class="scan-line" id="scanLine"></div>
-
-  <div class="tip-bubble" id="tipBubble">💡 Tiens le téléphone bien stable</div>
 
   <div class="result-banner" id="resultBanner">
     <div class="result-status idle" id="resultStatus">En attente</div>
@@ -298,67 +297,59 @@ backdrop-filter: blur(8px);
 <script>
   const video = document.getElementById('video');
   const overlay = document.getElementById('overlay');
+  const capture = document.getElementById('capture');
   const ctx = overlay.getContext('2d');
-  const loadingBar = document.getElementById('loadingBar');
+  const capCtx = capture.getContext('2d');
+  const statusPill = document.getElementById('statusPill');
 
   let stream = null;
   let scanning = false;
   let scanInterval = null;
-  let worker = null;
   let isProcessing = false;
-  let workerReady = false;
+  let detector = null;
 
-  // Show loading state
-  document.getElementById('statusLabel').textContent = 'Chargement OCR...';
-  document.getElementById('statusDot').className = 'status-dot scanning';
-
-  async function initWorker() {
+  // Check Shape Detection API support
+  function checkSupport() {
+    if (!('TextDetector' in window)) {
+      document.getElementById('notSupported').classList.add('visible');
+      statusPill.textContent = 'Non supporté';
+      statusPill.className = 'status-pill error';
+      return false;
+    }
     try {
-      // Use only English for faster/more reliable loading
-      worker = await Tesseract.createWorker('eng', 1, {
-        logger: m => {
-          if (m.status === 'loading tesseract core') {
-            document.getElementById('statusLabel').textContent = 'Chargement...';
-          }
-          if (m.status === 'initializing tesseract') {
-            document.getElementById('statusLabel').textContent = 'Initialisation...';
-          }
-          if (m.status === 'initialized tesseract') {
-            workerReady = true;
-            document.getElementById('statusLabel').textContent = 'Prêt !';
-            document.getElementById('statusDot').className = 'status-dot';
-          }
-        }
-      });
-      workerReady = true;
-      document.getElementById('statusLabel').textContent = 'Prêt';
-      document.getElementById('statusDot').className = 'status-dot';
+      detector = new TextDetector();
+      statusPill.textContent = '✓ Prêt';
+      statusPill.className = 'status-pill ready';
+      return true;
     } catch(e) {
-      document.getElementById('statusLabel').textContent = 'Erreur OCR';
-      document.getElementById('statusDot').className = 'status-dot';
-      alert('Erreur au chargement de la reconnaissance de texte :\n' + e.message + '\n\nVérifie ta connexion internet.');
-      console.error('Erreur Tesseract:', e);
+      document.getElementById('notSupported').classList.add('visible');
+      statusPill.textContent = 'Erreur';
+      statusPill.className = 'status-pill error';
+      return false;
     }
   }
-  initWorker();
+
+  checkSupport();
 
   async function startCamera() {
+    if (!detector) { checkSupport(); return; }
     try {
       stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'environment',
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         }
       });
       video.srcObject = stream;
       document.getElementById('startScreen').style.display = 'none';
       document.getElementById('resultBanner').style.display = 'block';
-      setStatus('active', 'Caméra active');
 
       video.addEventListener('loadedmetadata', () => {
         overlay.width = video.videoWidth;
         overlay.height = video.videoHeight;
+        capture.width = video.videoWidth;
+        capture.height = video.videoHeight;
       });
     } catch(e) {
       alert('Impossible d\'accéder à la caméra.\n' + e.message);
@@ -367,6 +358,7 @@ backdrop-filter: blur(8px);
 
   function toggleScan() {
     if (!stream) { alert('Active d\'abord la caméra !'); return; }
+    if (!detector) { checkSupport(); return; }
 
     const title = document.getElementById('bookInput').value.trim();
     if (!title) {
@@ -376,11 +368,7 @@ backdrop-filter: blur(8px);
       return;
     }
 
-    if (scanning) {
-      stopScan();
-    } else {
-      startScan(title);
-    }
+    scanning ? stopScan() : startScan(title);
   }
 
   function startScan(title) {
@@ -389,17 +377,16 @@ backdrop-filter: blur(8px);
     btn.textContent = '⏹ Arrêter';
     btn.classList.add('scanning');
     document.getElementById('scanLine').classList.add('active');
-    document.getElementById('tipBubble').classList.add('visible');
-    setTimeout(() => document.getElementById('tipBubble').classList.remove('visible'), 3000);
+    statusPill.textContent = 'Scan en cours...';
+    statusPill.className = 'status-pill scanning';
 
-    setStatus('scanning', 'Analyse...');
     document.getElementById('resultStatus').textContent = 'Analyse en cours...';
     document.getElementById('resultStatus').className = 'result-status searching';
-    document.getElementById('resultText').textContent = `Je cherche : "${title}"`;
+    document.getElementById('resultText').textContent = `Cherche : "${title}"`;
     document.getElementById('resultSub').textContent = 'Pointe vers l\'étagère...';
 
     doScan(title);
-    scanInterval = setInterval(() => doScan(title), 3000);
+    scanInterval = setInterval(() => doScan(title), 2000);
   }
 
   function stopScan() {
@@ -410,206 +397,147 @@ backdrop-filter: blur(8px);
     btn.textContent = '🔍 Scanner';
     btn.classList.remove('scanning');
     document.getElementById('scanLine').classList.remove('active');
-    loadingBar.classList.remove('active');
-    loadingBar.style.width = '0%';
     ctx.clearRect(0, 0, overlay.width, overlay.height);
-    setStatus('active', 'Caméra active');
+    statusPill.textContent = '✓ Prêt';
+    statusPill.className = 'status-pill ready';
     document.getElementById('resultStatus').textContent = 'Scan arrêté';
     document.getElementById('resultStatus').className = 'result-status idle';
     document.getElementById('resultText').textContent = '';
     document.getElementById('resultSub').textContent = '';
   }
 
-  function setStatus(type, label) {
-    document.getElementById('statusDot').className = 'status-dot ' + type;
-    document.getElementById('statusLabel').textContent = label;
-  }
-
   async function doScan(searchTitle) {
     if (!scanning || isProcessing) return;
-    if (!workerReady) {
-      document.getElementById('resultSub').textContent = '⏳ OCR encore en chargement, patiente quelques secondes...';
-      return;
-    }
     isProcessing = true;
 
-    // Show loading bar animation
-    loadingBar.classList.add('active');
-    loadingBar.style.width = '0%';
-    let progress = 0;
-    const progressInterval = setInterval(() => {
-      progress = Math.min(progress + 8, 85);
-      loadingBar.style.width = progress + '%';
-    }, 150);
-
     try {
-      // Capture frame
-      const cap = document.createElement('canvas');
-      cap.width = video.videoWidth;
-      cap.height = video.videoHeight;
-      cap.getContext('2d').drawImage(video, 0, 0);
+      // Draw current video frame to capture canvas
+      capCtx.drawImage(video, 0, 0, capture.width, capture.height);
 
-      // Run OCR
-      const { data } = await worker.recognize(cap);
-
-      clearInterval(progressInterval);
-      loadingBar.style.width = '100%';
-      setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
+      // Use native TextDetector
+      const results = await detector.detect(capture);
 
       if (!scanning) { isProcessing = false; return; }
 
-      // Check if book found
-      const rawText = data.text || '';
-      const { found, matchedWord } = fuzzyMatch(searchTitle, rawText);
-
       ctx.clearRect(0, 0, overlay.width, overlay.height);
 
-      if (found) {
-        // Find word position in OCR data and highlight
-        highlightFound(data.words, searchTitle);
+      if (!results || results.length === 0) {
+        document.getElementById('resultSub').textContent = 'Aucun texte détecté — rapproche-toi ou améliore l\'éclairage';
+        isProcessing = false;
+        return;
+      }
+
+      // Combine all detected text
+      const allText = results.map(r => r.rawValue).join(' ');
+      console.log('Texte détecté:', allText);
+
+      const { found, matchedBlock } = fuzzyMatch(searchTitle, results);
+
+      if (found && matchedBlock) {
+        // Draw highlight around found text
+        drawHighlight(matchedBlock.boundingBox, matchedBlock.rawValue);
 
         document.getElementById('resultStatus').textContent = '✅ LIVRE TROUVÉ !';
         document.getElementById('resultStatus').className = 'result-status found';
-        document.getElementById('resultText').textContent = matchedWord;
-        document.getElementById('resultSub').textContent = 'Le livre est mis en surbrillance sur l\'image';
-        setStatus('active', 'Trouvé ! ✓');
+        document.getElementById('resultText').textContent = matchedBlock.rawValue;
+        document.getElementById('resultSub').textContent = 'Encadré en vert sur l\'image';
+        statusPill.textContent = '✓ Trouvé !';
+        statusPill.className = 'status-pill ready';
 
         if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 300]);
 
       } else {
-        document.getElementById('resultStatus').textContent = '🔍 Analyse en cours...';
+        const count = results.length;
+        document.getElementById('resultStatus').textContent = '🔍 Pas encore trouvé';
         document.getElementById('resultStatus').className = 'result-status searching';
-        document.getElementById('resultText').textContent = `"${searchTitle}" pas encore trouvé`;
-        const wordCount = data.words?.length || 0;
-        document.getElementById('resultSub').textContent = wordCount > 3
-          ? `${wordCount} mots lus — continue à filmer l'étagère`
-          : 'Rapproche-toi ou améliore l\'éclairage';
+        document.getElementById('resultText').textContent = `"${searchTitle}"`;
+        document.getElementById('resultSub').textContent = `${count} bloc(s) de texte lus — continue à filmer`;
       }
 
     } catch(e) {
-      clearInterval(progressInterval);
-      loadingBar.style.width = '0%';
-      loadingBar.classList.remove('active');
-      document.getElementById('resultSub').textContent = '❌ Erreur OCR : ' + e.message;
-      console.error('OCR error:', e);
+      document.getElementById('resultSub').textContent = '❌ ' + e.message;
+      console.error(e);
     }
 
     isProcessing = false;
   }
 
-  function fuzzyMatch(search, text) {
-    // Normalize both strings
+  function fuzzyMatch(search, detectedBlocks) {
     const normalize = s => s.toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')  // remove accents
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9\s]/g, ' ')
       .replace(/\s+/g, ' ').trim();
 
     const normSearch = normalize(search);
-    const normText = normalize(text);
     const searchWords = normSearch.split(' ').filter(w => w.length > 2);
-
     if (!searchWords.length) return { found: false };
 
-    // Count how many search words appear in the text
-    const matchCount = searchWords.filter(w => normText.includes(w)).length;
-    const ratio = matchCount / searchWords.length;
+    let bestBlock = null;
+    let bestScore = 0;
 
-    // Found if more than 60% of significant words match
-    if (ratio >= 0.6) {
-      // Find best matching line in original text
-      const lines = text.split('\n').filter(l => l.trim());
-      let bestLine = search;
-      let bestScore = 0;
-      for (const line of lines) {
-        const normLine = normalize(line);
-        const lineScore = searchWords.filter(w => normLine.includes(w)).length;
-        if (lineScore > bestScore) {
-          bestScore = lineScore;
-          bestLine = line.trim();
-        }
+    for (const block of detectedBlocks) {
+      const normBlock = normalize(block.rawValue);
+      const matchCount = searchWords.filter(w => normBlock.includes(w)).length;
+      const ratio = matchCount / searchWords.length;
+      if (ratio > bestScore) {
+        bestScore = ratio;
+        bestBlock = block;
       }
-      return { found: true, matchedWord: bestLine || search };
     }
 
+    // 60% of words must match
+    if (bestScore >= 0.6) {
+      return { found: true, matchedBlock: bestBlock };
+    }
     return { found: false };
   }
 
-  function highlightFound(words, searchTitle) {
-    if (!words || !words.length) {
-      drawFoundBorder();
-      return;
-    }
+  function drawHighlight(bbox, label) {
+    const scaleX = overlay.width / capture.width;
+    const scaleY = overlay.height / capture.height;
 
-    const normalize = s => s.toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9\s]/g, ' ').trim();
+    const x = bbox.x * scaleX;
+    const y = bbox.y * scaleY;
+    const w = bbox.width * scaleX;
+    const h = bbox.height * scaleY;
+    const pad = 16;
 
-    const searchWords = normalize(searchTitle).split(' ').filter(w => w.length > 2);
-
-    // Scale factor between video and overlay
-    const scaleX = overlay.width / video.videoWidth;
-    const scaleY = overlay.height / video.videoHeight;
-
-    let foundWords = [];
-    for (const word of words) {
-      const normWord = normalize(word.text);
-      if (searchWords.some(sw => normWord.includes(sw) || sw.includes(normWord))) {
-        foundWords.push(word);
-      }
-    }
-
-    if (foundWords.length === 0) {
-      drawFoundBorder();
-      return;
-    }
-
-    // Draw highlight box around matched words
-    let minX = Infinity, minY = Infinity, maxX = 0, maxY = 0;
-    for (const w of foundWords) {
-      const b = w.bbox;
-      minX = Math.min(minX, b.x0 * scaleX);
-      minY = Math.min(minY, b.y0 * scaleY);
-      maxX = Math.max(maxX, b.x1 * scaleX);
-      maxY = Math.max(maxY, b.y1 * scaleY);
-    }
-
-    const pad = 20;
-    minX -= pad; minY -= pad; maxX += pad; maxY += pad;
-
-    // Glowing highlight rectangle
     ctx.save();
     ctx.shadowColor = '#2dba6f';
-    ctx.shadowBlur = 30;
-    ctx.strokeStyle = '#2dba6f';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
+    ctx.shadowBlur = 25;
 
-    ctx.fillStyle = 'rgba(45, 186, 111, 0.2)';
-    ctx.fillRect(minX, minY, maxX - minX, maxY - minY);
+    // Fill
+    ctx.fillStyle = 'rgba(45, 186, 111, 0.25)';
+    ctx.fillRect(x - pad, y - pad, w + pad*2, h + pad*2);
+
+    // Border
+    ctx.strokeStyle = '#2dba6f';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(x - pad, y - pad, w + pad*2, h + pad*2);
     ctx.restore();
 
-    // Label
+    // Label tag
     ctx.fillStyle = '#2dba6f';
-    ctx.font = 'bold 18px DM Sans, sans-serif';
-    ctx.fillText('✓ Trouvé !', minX + 6, minY - 10);
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillText('✓ Trouvé !', x - pad + 6, y - pad - 8);
 
-    drawFoundBorder();
+    // Corner brackets on full screen
+    drawCorners();
   }
 
-  function drawFoundBorder() {
-    const w = overlay.width, h = overlay.height;
-    const s = 50, pad = 25;
-
+  function drawCorners() {
+    const W = overlay.width, H = overlay.height;
+    const s = 45, p = 20;
     ctx.save();
     ctx.strokeStyle = '#2dba6f';
-    ctx.lineWidth = 5;
+    ctx.lineWidth = 4;
     ctx.shadowColor = '#2dba6f';
-    ctx.shadowBlur = 15;
+    ctx.shadowBlur = 10;
     ctx.beginPath();
-    ctx.moveTo(pad, pad+s); ctx.lineTo(pad,pad); ctx.lineTo(pad+s,pad);
-    ctx.moveTo(w-pad-s,pad); ctx.lineTo(w-pad,pad); ctx.lineTo(w-pad,pad+s);
-    ctx.moveTo(pad,h-pad-s); ctx.lineTo(pad,h-pad); ctx.lineTo(pad+s,h-pad);
-    ctx.moveTo(w-pad-s,h-pad); ctx.lineTo(w-pad,h-pad); ctx.lineTo(w-pad,h-pad-s);
+    ctx.moveTo(p, p+s); ctx.lineTo(p, p); ctx.lineTo(p+s, p);
+    ctx.moveTo(W-p-s, p); ctx.lineTo(W-p, p); ctx.lineTo(W-p, p+s);
+    ctx.moveTo(p, H-p-s); ctx.lineTo(p, H-p); ctx.lineTo(p+s, H-p);
+    ctx.moveTo(W-p-s, H-p); ctx.lineTo(W-p, H-p); ctx.lineTo(W-p, H-p-s);
     ctx.stroke();
     ctx.restore();
   }
