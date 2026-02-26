@@ -308,15 +308,35 @@ backdrop-filter: blur(8px);
   let isProcessing = false;
   let workerReady = false;
 
-  // Pre-load Tesseract worker in background
+  // Show loading state
+  document.getElementById('statusLabel').textContent = 'Chargement OCR...';
+  document.getElementById('statusDot').className = 'status-dot scanning';
+
   async function initWorker() {
     try {
-      worker = await Tesseract.createWorker('fra+eng', 1, {
-        logger: () => {}
+      // Use only English for faster/more reliable loading
+      worker = await Tesseract.createWorker('eng', 1, {
+        logger: m => {
+          if (m.status === 'loading tesseract core') {
+            document.getElementById('statusLabel').textContent = 'Chargement...';
+          }
+          if (m.status === 'initializing tesseract') {
+            document.getElementById('statusLabel').textContent = 'Initialisation...';
+          }
+          if (m.status === 'initialized tesseract') {
+            workerReady = true;
+            document.getElementById('statusLabel').textContent = 'Prêt !';
+            document.getElementById('statusDot').className = 'status-dot';
+          }
+        }
       });
       workerReady = true;
-      console.log('Tesseract prêt');
+      document.getElementById('statusLabel').textContent = 'Prêt';
+      document.getElementById('statusDot').className = 'status-dot';
     } catch(e) {
+      document.getElementById('statusLabel').textContent = 'Erreur OCR';
+      document.getElementById('statusDot').className = 'status-dot';
+      alert('Erreur au chargement de la reconnaissance de texte :\n' + e.message + '\n\nVérifie ta connexion internet.');
       console.error('Erreur Tesseract:', e);
     }
   }
@@ -406,7 +426,11 @@ backdrop-filter: blur(8px);
   }
 
   async function doScan(searchTitle) {
-    if (!scanning || isProcessing || !workerReady) return;
+    if (!scanning || isProcessing) return;
+    if (!workerReady) {
+      document.getElementById('resultSub').textContent = '⏳ OCR encore en chargement, patiente quelques secondes...';
+      return;
+    }
     isProcessing = true;
 
     // Show loading bar animation
@@ -464,6 +488,9 @@ backdrop-filter: blur(8px);
 
     } catch(e) {
       clearInterval(progressInterval);
+      loadingBar.style.width = '0%';
+      loadingBar.classList.remove('active');
+      document.getElementById('resultSub').textContent = '❌ Erreur OCR : ' + e.message;
       console.error('OCR error:', e);
     }
 
